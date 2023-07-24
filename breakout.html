@@ -1,0 +1,434 @@
+<html>
+<body onload="start();">
+<H1>My Breakout</H1>
+<canvas id="canvas" width=400 height=400 style="border: 1px solid black;">
+</canvas>
+</body>
+<script>
+// ***************************************
+// All classes/methods required for CodeHS
+// NOTE event.getX() must be replaced with event.clientX
+// ***************************************
+	var elements = new Array();
+	var timerId;
+	const canvas = document.getElementById("canvas");
+	const ctx = canvas.getContext("2d");
+	const Color = {
+	  green: "#00ff00",
+	  blue: "#0000ff",
+	  red: "#ff0000",
+	  black: "#ffffff",
+	  orange: "#FFA500"
+	  };
+	const Keyboard = {
+		LEFT:37,
+		UP:38,
+		RIGHT:39,
+		DOWN:40
+	};
+	function getElementAt(anX,aY)
+	{
+		for( var i=0; i<elements.length; i++ )
+		{
+			var obj = elements[i];
+			if( !( obj instanceof Circle ) && anX >= obj.x && anX<=obj.x + obj.getWidth() && aY >= obj.y && aY <= obj.y+obj.getHeight() )
+			{
+				return obj;
+			}
+		}
+	}
+	function keyDownMethod(func)
+	{
+		document.addEventListener("keydown", func);
+	}
+	function mouseMoveMethod(func)
+	{
+		document.addEventListener("mousemove", func);
+	}
+	function mouseClickMethod(func)
+	{
+		document.addEventListener("click", func);
+	}
+	function setTimer(func,delay)
+	{
+		timerId = setInterval(func,delay);
+	}
+	function stopTimer() {
+		clearInterval(timerId);
+	}
+	function getWidth()
+	{
+		return canvas.width;
+	}
+	function getHeight()
+	{
+		return canvas.height;
+	}
+	function add(anObj)
+	{
+		elements.push(anObj);
+		anObj.draw();
+	}
+	function remove(anObj)
+	{
+		anObj.clear(0);
+		for( var i=0; i<elements.length; i++ )
+			if( elements[i] == anObj )
+			{
+				elements.splice(i,1);
+				for( var i=0; i<elements.length; i++ )
+					elements[i].draw();
+				return;
+			}		
+	}
+	function removeAll()
+	{
+		elements = new Array();
+		ctx.clearRect(0,0,getWidth(), getHeight());
+	}
+	class Circle
+	{
+		constructor(aRadius) { 
+			this.radius = aRadius; 
+			this.color=Color.blue;
+		}
+		getX() { return this.x; }
+		getY() { return this.y; }
+		getWidth() { return this.radius; }
+		getHeight() { return this.radius; }
+		getRadius() { return this.radius; }
+		setColor(aColor) { this.color=aColor; }
+		clear() { 
+			ctx.clearRect(this.x-this.radius,this.y-this.radius,2*this.radius, 2*this.radius); 
+		}
+		setPosition(anX, aY)
+		{
+			this.clear();
+			this.x=anX;
+			this.y=aY;
+		}
+		move( aDx,  aDy)
+		{
+			this.clear();
+			this.x += aDx;
+			this.y += aDy;
+			this.draw();
+		}
+		draw()
+		{
+			ctx.beginPath();
+			ctx.fillStyle=this.color;
+			ctx.arc(this.x,this.y,this.radius,0,Math.PI*2,true);
+			ctx.closePath();
+			ctx.fill();
+			ctx.restore();
+		}
+	}
+	
+	class Rectangle
+	{
+		constructor(aWidth, aHeight) { 
+			this.width = aWidth; 
+			this.height= aHeight;
+		}
+		getX() { return this.x; }
+		getY() { return this.y; }
+		getWidth()  { return this.width; }
+		getHeight() { return this.height; }
+		setColor(aColor) { this.color=aColor; }
+		clear() { ctx.clearRect(this.x,this.y,this.width, this.height); }
+		setPosition(anX, aY)
+		{
+			this.clear();
+			this.x=anX;
+			this.y=aY;
+			this.draw();
+		}
+		move( aDx,  aDy)
+		{
+			this.clear();
+			this.x += aDx;
+			this.y += aDy;
+			this.draw();
+		}	
+		draw()
+		{
+			ctx.fillStyle=this.color;
+			ctx.fillRect(this.x,this.y,this.width,this.height);
+		}
+	}
+	class Text
+	{
+		constructor(aText, aFont) { 
+			this.text = aText; 
+			this.font = aFont;
+		}
+		setPosition(anX, aY)
+		{
+			this.x=anX;
+			this.y=aY;
+		}
+		getWidth()  { return 200; }
+		getHeight() { return 50; }
+		draw()
+		{
+			ctx.font=this.font;
+			ctx.fillText(this.text, this.x,this.y);
+		}
+	}
+	class Randomizer 
+	{
+		static nextInt(start,finish){
+			return start + Math.floor(Math.random() * (finish-start));
+		}
+		static nextBoolean() {
+			return Math.random() >= .5;
+		}
+		
+	}
+// *******************************************************************************
+// YOUR CODE GOES AFTER HERE!!!!!
+// *******************************************************************************
+var PADDLE_WIDTH = 80;
+var PADDLE_HEIGHT = 15;
+var PADDLE_OFFSET = 10;
+
+var BALL_RADIUS = 15;
+
+var NUM_ROWS = 8;
+var BRICK_TOP_OFFSET = 10;
+var BRICK_SPACING = 2;
+var NUM_BRICKS_PER_ROW = 8;
+var BRICK_HEIGHT = 10;
+var BRICK_WIDTH = (getWidth() - (NUM_BRICKS_PER_ROW + 1) 
+	* BRICK_SPACING) / NUM_BRICKS_PER_ROW;
+
+var paddle, ball;
+var vx; 
+var vy = 8;
+
+var NUM_TURNS = 3;
+var turnsLeft = NUM_TURNS;
+var bricksLeft = NUM_ROWS * NUM_BRICKS_PER_ROW;
+
+var paused = true;
+var DELAY = 40;
+
+function start(){
+	setup();
+	setTimer(draw, DELAY);
+	mouseMoveMethod(myMove);
+	mouseClickMethod(pauseGame);
+}
+
+function pauseGame(e){
+    paused=!paused;
+}
+
+function setup(){
+
+	drawBricks();
+	setupPaddle();
+	setupBall();
+	setSpeeds();
+}
+
+// Runs the game if not paused
+function draw(){
+	if(!paused){
+    	checkWalls();
+    	checkObjects();
+    	ball.move(vx, vy);
+	}
+}
+
+// Moves the paddle
+function myMove(event){
+	var x = event.clientX - paddle.getWidth()/2;
+	if(x < 0) 
+		x = 0;
+	if(x + paddle.getWidth() > getWidth())
+		x = getWidth() - paddle.getWidth();
+	paddle.setPosition(x, paddle.getY());
+}
+
+/* ############## Functions to setup game ############## */
+
+function setupBall(){
+	ball = new Circle(BALL_RADIUS);
+	ball.setPosition(getWidth()/2, getHeight()/2);
+	add(ball);
+}
+
+function setupPaddle(){
+	paddle = new Rectangle(PADDLE_WIDTH, PADDLE_HEIGHT);
+	paddle.setPosition(getWidth()/2 - paddle.getWidth()/2, 
+		getHeight() - paddle.getHeight() - PADDLE_OFFSET);
+	add(paddle);
+}
+
+function getColorForRow(rowNum){
+	rowNum = rowNum % 8;
+	if(rowNum <= 1){
+		return Color.red;
+	}else if(rowNum > 1 && rowNum <= 3){
+		return Color.orange; 
+	}else if(rowNum > 3 && rowNum <= 5){
+		return Color.green;
+	}else{
+		return Color.blue;
+	}
+}
+
+function drawBrick(x, y, color){
+	var brick = new Rectangle(BRICK_WIDTH, BRICK_HEIGHT);
+	brick.setPosition(x, y);
+	brick.setColor(color);
+	add(brick);
+}
+
+function drawRow(rowNum, yPos){
+	var xPos = BRICK_SPACING;
+	for(var i = 0; i < NUM_BRICKS_PER_ROW; i++){
+		drawBrick(xPos, yPos, getColorForRow(rowNum));
+		xPos += BRICK_WIDTH + BRICK_SPACING;
+	}
+}
+
+function drawBricks(){
+	var yPos = BRICK_TOP_OFFSET;
+	for(var i = 0; i < NUM_ROWS; i++){
+		drawRow(i, yPos);
+		yPos += BRICK_HEIGHT + BRICK_SPACING;
+	}
+}
+
+// Sets a random speed for vx
+function setSpeeds(){
+	vx = Randomizer.nextInt(2, 7);
+	if(Randomizer.nextBoolean())
+		vx = -vx;
+}
+
+/* ############## Functions to run game ############## */
+
+function checkWalls(){
+	if(ball.getX() - ball.getRadius() < 0 || ball.getX() + ball.getRadius() > getWidth()){
+		vx = -vx;
+	}
+	if(ball.getY() - ball.getRadius() < 0){
+		vy = -vy;
+	}
+
+    // if bottom of ball hits bottom of screen, lose life
+	if(ball.getY() + ball.getRadius() > getHeight()){
+		turnsLeft--;
+		checkLose();
+	}
+}
+
+function getCollidingObject(){
+	var left = ball.getX() - ball.getRadius();
+	var right = ball.getX() + ball.getRadius();
+	
+	var top = ball.getY() - ball.getRadius();
+	var bottom = ball.getY() + ball.getRadius();
+	
+	var topLeft = getElementAt(left, top);
+	if(topLeft) return topLeft;
+	
+	var topRight = getElementAt(right, top);
+	if(topRight) return topRight;
+	
+	var bottomLeft = getElementAt(left, bottom);
+	if(bottomLeft) return bottomLeft;
+	
+	var bottomRight = getElementAt(right, bottom);
+	if(bottomRight) return bottomRight;
+}
+
+function checkObjects(){
+	var elem = getCollidingObject();
+	if(elem != null){
+	    
+	    // if ball has collided with a brick
+		if(elem != paddle){
+			remove(elem);
+			vy = -vy;
+			bricksLeft--;
+			checkWin();
+		}else{
+			vy = -Math.abs(vy);
+		}
+	}
+}
+
+/* ############## Functions for win and lose ############## */
+
+function drawGameOver(){
+    removeAll();
+    var text = new Text("Game Over", "30pt Arial")
+    text.setPosition(getWidth()/2-text.getWidth()/2,getHeight()/2);
+    add(text);
+    
+    var text2 = new Text("Click to Replay", "20pt Arial")
+    text2.setPosition(getWidth()/2-text2.getWidth()/2,getHeight()/2+text.getHeight());
+    add(text2);
+    
+    mouseClickMethod(resetGame);
+}
+
+function drawGameWon(){
+    removeAll();
+    var text = new Text("You Win!!", "30pt Arial")
+    text.setPosition(getWidth()/2-text.getWidth()/2,getHeight()/2);
+    add(text);
+    
+    var text2 = new Text("Click to Replay", "20pt Arial")
+    text2.setPosition(getWidth()/2-text2.getWidth()/2,getHeight()/2+text.getHeight());
+    add(text2);
+    
+    mouseClickMethod(resetGame);
+}
+
+function checkWin(){
+	if(bricksLeft == 0){
+		stopTimer(draw);
+		drawGameWon();
+	}
+}
+
+function checkLose(){
+	if(turnsLeft == 0){
+		stopTimer(draw);				
+		drawGameOver();
+	}
+	
+	// still lives left
+	else{
+	    remove(ball);
+		stopTimer(draw);
+		setTimer(draw, DELAY);
+		paused = true;
+		setupBall();
+		setSpeeds();
+	}
+}
+
+function resetGame(e){
+    vy = 8;
+    turnsLeft = NUM_TURNS;
+    bricksLeft = NUM_ROWS * NUM_BRICKS_PER_ROW;
+    paused = true;
+    removeAll();
+    
+    start();
+}
+
+
+// *******************************************************************************
+// AND BEFORE HERE
+// *******************************************************************************
+</script>
+
+</html>
